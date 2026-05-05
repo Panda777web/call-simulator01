@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Симулятор делового звонка</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f5f0;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif}
+.sim{background:#fff;border-radius:20px;padding:24px 20px;max-width:640px;width:100%;box-shadow:0 2px 16px rgba(0,0,0,.08)}
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.top-bar h2{font-size:18px;font-weight:700;color:#1a1a1a}
+.top-bar p{font-size:11px;color:#888;margin-top:2px}
+.top-right{display:flex;align-items:center;gap:8px}
+.score-pill{background:#EEEDFE;color:#3C3489;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap}
+.sound-btn{background:#f5f5f0;border:1px solid #ddd;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:13px;color:#666;transition:all .15s;white-space:nowrap}
+.sound-btn:hover{border-color:#534AB7;color:#534AB7}
+.sound-btn.off{background:#FCEBEB;border-color:#F7C1C1;color:#A32D2D}
+.prog-bar{height:4px;background:#E8E8E8;border-radius:2px;margin-bottom:16px;overflow:hidden}
+.prog-fill{height:100%;background:#534AB7;border-radius:2px;transition:width .4s}
+.phone-shell{background:#1C1B2E;border-radius:18px;padding:16px 15px 13px;margin-bottom:16px}
+.phone-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.av-wrap{position:relative;flex-shrink:0}
+.avatar-circle{width:54px;height:54px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.status-ring{position:absolute;inset:-3px;border-radius:50%;border:2.5px solid transparent;transition:border-color .3s}
+.status-ring.ring{border-color:#EF9F27;animation:pr 1s infinite}
+.status-ring.talk{border-color:#1D9E75}
+.status-ring.fail{border-color:#E24B4A}
+@keyframes pr{0%,100%{opacity:1}50%{opacity:.35}}
+.c-info{flex:1}
+.c-name{font-size:15px;font-weight:700;color:#fff}
+.c-role{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px}
+.c-comp{font-size:11px;color:rgba(255,255,255,.3);margin-top:1px}
+.c-timer{font-size:12px;color:rgba(255,255,255,.35);font-variant-numeric:tabular-nums}
+.speech{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:11px 13px;min-height:44px;display:flex;align-items:center;gap:10px}
+.speech-txt{font-size:14px;color:rgba(255,255,255,.88);line-height:1.5;font-style:italic;flex:1}
+.speech-txt .hl{color:#FAC775;font-weight:700;font-style:normal}
+.speak-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:11px;color:rgba(255,255,255,.6);white-space:nowrap;transition:background .15s;flex-shrink:0}
+.speak-btn:hover{background:rgba(255,255,255,.18)}
+.speak-btn.playing{background:rgba(29,158,117,.3);border-color:rgba(29,158,117,.5);color:#5DCAA5}
+.ft-row{display:flex;gap:5px;margin:12px 0 2px}
+.ft{flex:1;background:rgba(255,255,255,.05);border-radius:6px;padding:5px 5px;text-align:center;font-size:10px;color:rgba(255,255,255,.3);font-weight:600;transition:all .3s;border:1px solid rgba(255,255,255,.07)}
+.ft.done{background:rgba(29,158,117,.22);color:#5DCAA5;border-color:rgba(29,158,117,.38)}
+.ft.cur{background:rgba(239,159,39,.18);color:#FAC775;border-color:rgba(239,159,39,.3)}
+.ft.fail{background:rgba(226,75,74,.2);color:#F09595;border-color:rgba(226,75,74,.35)}
+.sit-badge{font-size:10px;font-weight:700;letter-spacing:.8px;color:#854F0B;background:#FAEEDA;padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:9px;text-transform:uppercase}
+.step-lbl{font-size:11px;font-weight:600;color:#888;letter-spacing:.5px;margin-bottom:5px;text-transform:uppercase}
+.step-q{font-size:15px;font-weight:600;color:#1a1a1a;margin-bottom:13px;line-height:1.4}
+.opts{display:flex;flex-direction:column;gap:7px;margin-bottom:11px}
+.opt{padding:11px 14px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid #E0E0E0;background:#fff;color:#1a1a1a;transition:all .15s;text-align:left;width:100%}
+.opt:hover:not(:disabled){border-color:#534AB7;background:#EEEDFE;color:#3C3489}
+.opt.ok{background:#E1F5EE;border-color:#1D9E75;color:#085041;pointer-events:none}
+.opt.bad{background:#FCEBEB;border-color:#E24B4A;color:#791F1F;pointer-events:none;animation:shk .35s}
+.opt:disabled{opacity:.38;pointer-events:none}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.fb-box{border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5;margin-bottom:11px;display:none}
+.fb-box.ok{background:#E1F5EE;color:#0F6E56;border:1px solid #9FE1CB;display:block}
+.fb-box.bad{background:#FCEBEB;color:#A32D2D;border:1px solid #F7C1C1;display:block}
+.hangup-warn{background:#FAEEDA;border:1.5px solid #EF9F27;border-radius:10px;padding:10px 13px;font-size:13px;color:#633806;margin-bottom:11px;display:none;line-height:1.5}
+.nxt-btn{width:100%;padding:12px;border-radius:10px;background:#534AB7;color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;display:none;transition:background .2s}
+.nxt-btn:hover{background:#3C3489}
+.nxt-btn.danger{background:#E24B4A}
+.nxt-btn.danger:hover{background:#A32D2D}
+.intro-screen{text-align:center;padding:28px 16px}
+.intro-title{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:7px}
+.intro-sub{font-size:13px;color:#666;margin-bottom:22px;line-height:1.6}
+.start-btn{padding:13px 34px;border-radius:12px;background:#534AB7;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer}
+.start-btn:hover{background:#3C3489}
+.ring-screen{text-align:center;padding:22px 16px}
+.ring-av{width:80px;height:80px;border-radius:50%;margin:0 auto 12px;overflow:hidden;border:3px solid #EF9F27;animation:pr 1s infinite;display:flex;align-items:center;justify-content:center}
+.ring-name{font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:3px}
+.ring-role{font-size:12px;color:#888;margin-bottom:14px}
+.ring-wave{display:flex;gap:4px;justify-content:center;align-items:flex-end;height:26px;margin-bottom:16px}
+.ring-wave span{display:block;width:4px;border-radius:2px;background:#534AB7;animation:wv .8s infinite ease-in-out}
+.ring-wave span:nth-child(2){animation-delay:.1s}
+.ring-wave span:nth-child(3){animation-delay:.2s}
+.ring-wave span:nth-child(4){animation-delay:.3s}
+.ring-wave span:nth-child(5){animation-delay:.4s}
+@keyframes wv{0%,100%{height:5px}50%{height:22px}}
+.ans-btn{padding:12px 32px;border-radius:11px;background:#1D9E75;color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer}
+.ans-btn:hover{background:#0F6E56}
+.sel-screen{padding:6px 0}
+.sel-title{font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:13px;text-align:center}
+.sel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px}
+.sel-card{background:#fff;border:1.5px solid #E0E0E0;border-radius:12px;padding:10px;cursor:pointer;transition:all .15s;text-align:left;overflow:hidden}
+.sel-card:hover{border-color:#534AB7;background:#EEEDFE}
+.sel-card.done{border-color:#1D9E75;background:#E1F5EE}
+.sc-name{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:1px}
+.sc-role{font-size:11px;color:#888}
+.sc-phrase{font-size:11px;color:#534AB7;font-weight:600;margin-top:5px;font-style:italic}
+.end-screen{text-align:center;padding:18px 14px}
+.end-icon{font-size:42px;margin-bottom:9px}
+.end-title{font-size:18px;font-weight:700;margin-bottom:5px;color:#1a1a1a}
+.end-sub{font-size:13px;color:#666;margin-bottom:16px;line-height:1.5}
+.score-big{font-size:44px;font-weight:700;margin-bottom:3px}
+.score-sub{font-size:12px;color:#888;margin-bottom:16px}
+.formula-box{background:#FAEEDA;border:1.5px solid #EF9F27;border-radius:12px;padding:13px 15px;margin-bottom:16px;text-align:left}
+.fb-ttl{font-size:10px;font-weight:700;letter-spacing:1px;color:#854F0B;margin-bottom:9px;text-transform:uppercase}
+.fb-row{display:flex;align-items:center;gap:9px;margin-bottom:6px;font-size:13px;font-weight:600;color:#412402}
+.fb-num{width:21px;height:21px;border-radius:50%;background:#EF9F27;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.end-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.rep-btn{padding:11px 24px;border-radius:10px;background:#534AB7;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer}
+.rep-btn:hover{background:#3C3489}
+.sel-btn2{padding:11px 24px;border-radius:10px;background:#f5f5f0;color:#1a1a1a;border:1.5px solid #CCC;font-size:13px;font-weight:700;cursor:pointer}
+.sel-btn2:hover{background:#EEEDFE;border-color:#534AB7;color:#3C3489}
+</style>
+</head>
+<body>
+<div class="sim">
+
+<div class="intro-screen" id="sc-intro">
+  <svg width="64" height="64" viewBox="0 0 64 64" style="margin:0 auto 14px;display:block"><circle cx="32" cy="32" r="30" fill="#EEEDFE"/><rect x="20" y="18" width="24" height="28" rx="4" fill="#534AB7"/><rect x="23" y="21" width="18" height="16" rx="2" fill="#CECBF6"/><circle cx="32" cy="41" r="2.5" fill="#CECBF6"/></svg>
+  <div class="intro-title">Симулятор делового звонка</div>
+  <div class="intro-sub">10 реальных ситуаций · Разные клиенты · Озвучка<br>Формула: <strong>Приветствие → Имя + Фамилия → Компания → Цель</strong><br><br>Если оба первых шага провалены — клиент бросает трубку!</div>
+  <button class="start-btn" onclick="goSelect()">Выбрать ситуацию</button>
+</div>
+
+<div id="sc-select" style="display:none" class="sel-screen">
+  <div class="sel-title">Выбери клиента</div>
+  <div class="sel-grid" id="sel-grid"></div>
+</div>
+
+<div id="sc-ring" style="display:none" class="ring-screen">
+  <div class="ring-av" id="ring-av-wrap"></div>
+  <div class="ring-name" id="ring-name"></div>
+  <div class="ring-role" id="ring-role"></div>
+  <div class="ring-wave"><span></span><span></span><span></span><span></span><span></span></div>
+  <button class="ans-btn" onclick="startCall()">Начать разговор</button>
+</div>
+
+<div id="sc-call" style="display:none">
+  <div class="top-bar">
+    <div><h2>Деловой звонок</h2><p id="sit-top"></p></div>
+    <div class="top-right">
+      <button class="sound-btn" id="sound-toggle-btn" onclick="toggleSound()">🔊 Звук</button>
+      <div class="score-pill" id="score-disp">0/0</div>
+    </div>
+  </div>
+  <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="phone-shell">
+    <div class="phone-top">
+      <div class="av-wrap">
+        <div class="avatar-circle" id="call-av-wrap"></div>
+        <div class="status-ring talk" id="st-ring"></div>
+      </div>
+      <div class="c-info">
+        <div class="c-name" id="c-name"></div>
+        <div class="c-role" id="c-role"></div>
+        <div class="c-comp" id="c-comp"></div>
+      </div>
+      <div class="c-timer" id="c-timer">0:00</div>
+    </div>
+    <div class="speech">
+      <div class="speech-txt" id="speech-txt"></div>
+      <button class="speak-btn" id="speak-btn" onclick="speakPhrase()">&#9654; Слушать</button>
+    </div>
+    <div class="ft-row">
+      <div class="ft" id="ft0">Приветствие</div>
+      <div class="ft" id="ft1">Имя+Фам</div>
+      <div class="ft" id="ft2">Компания</div>
+      <div class="ft" id="ft3">Цель</div>
+    </div>
+  </div>
+  <div class="sit-badge" id="sit-badge"></div>
+  <div class="step-lbl" id="step-lbl"></div>
+  <div class="step-q" id="step-q"></div>
+  <div class="opts" id="opts-el"></div>
+  <div class="hangup-warn" id="hangup-warn"></div>
+  <div class="fb-box" id="fb-box"></div>
+  <button class="nxt-btn" id="nxt-btn">Следующий шаг →</button>
+</div>
+
+<div id="sc-end" style="display:none" class="end-screen">
+  <div class="end-icon" id="end-ico"></div>
+  <div class="end-title" id="end-ttl"></div>
+  <div class="end-sub" id="end-sub"></div>
+  <div class="score-big" id="end-sc"></div>
+  <div class="score-sub">правильных ответов из 4</div>
+  <div class="formula-box">
+    <div class="fb-ttl">Формула делового старта</div>
+    <div class="fb-row"><div class="fb-num">1</div>Здравствуйте!</div>
+    <div class="fb-row"><div class="fb-num">2</div>Это [Имя Фамилия]</div>
+    <div class="fb-row"><div class="fb-num">3</div>Компания [Название]</div>
+    <div class="fb-row"><div class="fb-num">4</div>Звоню по вопросу [конкретная цель]</div>
+  </div>
+  <div class="end-btns">
+    <button class="rep-btn" onclick="replaySit()">Повторить</button>
+    <button class="sel-btn2" onclick="goSelect()">Другой клиент</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+const SITS=[
+  {id:0,phrase:'Алло, слушаю',name:'Марина Козлова',role:'Секретарь',company:'ООО «СтройГрупп»',sphere:'Строительство',svgFill:'#CECBF6',svgAccent:'#534AB7',gender:'f',look:'secretary',tone:'neutral',steps:[
+    {q:'Секретарь спокойно ждёт. Как поздороваться?',opts:[{t:'Здравствуйте!',c:true,fb:'Чёткое деловое приветствие — секретарь готова слушать.'},{t:'Привет!',c:false,fb:'Слишком неформально. Отнесётся несерьёзно.'},{t:'Добрый день, соедините с директором',c:false,fb:'Требование без приветствия — грубый тон.'},{t:'Алло, это я',c:false,fb:'«Алло» — неподготовленно, «это я» — не представление.'}]},
+    {q:'Назовите себя.',opts:[{t:'Это Иван Иванов',c:true,fb:'Имя и фамилия — вы не аноним.'},{t:'Меня зовут Иван',c:false,fb:'Только имя — слишком мало.'},{t:'Я ваш потенциальный партнёр',c:false,fb:'Это не представление.'},{t:'Представитель нашей компании',c:false,fb:'Безликий ответ.'}]},
+    {q:'Назовите компанию.',opts:[{t:'Компания «Ромашка»',c:true,fb:'Название снимает тревогу «кто это».'},{t:'Мы из сферы услуг',c:false,fb:'Размыто.'},{t:'(пропустить, к цели)',c:false,fb:'Без компании непонятно откуда звонок.'},{t:'Небольшая местная фирма',c:false,fb:'Нет конкретики.'}]},
+    {q:'Обозначьте цель.',opts:[{t:'Звоню по вопросу поставки стройматериалов',c:true,fb:'Конкретная цель — секретарь понимает, стоит ли соединять.'},{t:'По поводу сотрудничества',c:false,fb:'Слышат 20 раз в день — не передают.'},{t:'У меня важный вопрос',c:false,fb:'Какой именно?'},{t:'Хочу предложить кое-что интересное',c:false,fb:'Раздражает без конкретики.'}]}
+  ]},
+  {id:1,phrase:'Да, говорите',name:'Алексей Петров',role:'Директор по закупкам',company:'ПАО «МеталлПром»',sphere:'Металлургия',svgFill:'#B5D4F4',svgAccent:'#185FA5',gender:'m',look:'director',tone:'busy',steps:[
+    {q:'Директор ответил коротко. Первое слово?',opts:[{t:'Здравствуйте!',c:true,fb:'Даже при занятом директоре — приветствие задаёт тон.'},{t:'Ладно, быстро...',c:false,fb:'Без приветствия — звучит нервно.'},{t:'Слушайте, у меня предложение...',c:false,fb:'Без «здравствуйте» — сразу отталкивает.'},{t:'О, хорошо что взяли трубку!',c:false,fb:'Панибратство — не лучший старт.'}]},
+    {q:'Кто вы? Быстро.',opts:[{t:'Иван Иванов, компания «Ромашка»',c:true,fb:'Имя, фамилия, компания за секунду — идеально.'},{t:'Иван, по поводу закупок',c:false,fb:'Нет фамилии — выглядит анонимно.'},{t:'Мы уже общались с вашим коллегой',c:false,fb:'Сначала представьтесь.'},{t:'Я из отдела продаж',c:false,fb:'«Отдел продаж» — не имя.'}]},
+    {q:'Чётко цель.',opts:[{t:'Звоню по вопросу металлопроката для вашего производства',c:true,fb:'Конкретно и релевантно.'},{t:'Хотел предложить выгодное сотрудничество',c:false,fb:'Штамп — кладут трубку.'},{t:'Есть уникальное предложение',c:false,fb:'«Уникальное» — слышал сто раз.'},{t:'Мы работаем в металлургии 10 лет...',c:false,fb:'История — не цель звонка.'}]},
+    {q:'Уточните одной короткой фразой.',opts:[{t:'Хочу обсудить условия поставки листового металла',c:true,fb:'Конкретный продукт + действие — директор слушает.'},{t:'Хочу рассказать о нас',c:false,fb:'Директор не хочет рассказов.'},{t:'Предлагаю встретиться',c:false,fb:'Встреча без обоснования — рано.'},{t:'Могу прислать КП',c:false,fb:'КП без разговора — слабый ход.'}]}
+  ]},
+  {id:2,phrase:'Кто это?',name:'Ольга Смирнова',role:'Финансовый директор',company:'ООО «АгроТрейд»',sphere:'Агробизнес',svgFill:'#F4C0D1',svgAccent:'#993556',gender:'f',look:'finance',tone:'suspicious',steps:[
+    {q:'«Кто это?» — подозрительно. Как начать?',opts:[{t:'Здравствуйте, это Иван Иванов',c:true,fb:'Приветствие + имя сразу снимают подозрение.'},{t:'Это по вопросу сотрудничества',c:false,fb:'Не ответили на вопрос «кто».'},{t:'Не волнуйтесь, я по делу',c:false,fb:'Звучит манипулятивно.'},{t:'Я из телефонной базы',c:false,fb:'Это вообще не ответ.'}]},
+    {q:'Назовите компанию.',opts:[{t:'Компания «Ромашка», поставки',c:true,fb:'Название + описание снимают подозрение.'},{t:'(не буду, к делу)',c:false,fb:'Без компании — решит мошенник.'},{t:'Вы нас знаете, мы крупная компания',c:false,fb:'«Вы нас знаете» — манипуляция.'},{t:'Это конфиденциально',c:false,fb:'Трубку положат немедленно.'}]},
+    {q:'Объясните цель конкретно.',opts:[{t:'Звоню по вопросу финучёта зерновых культур',c:true,fb:'Профессиональная цель — понимает: по делу.'},{t:'Мне дал номер ваш коллега',c:false,fb:'Сначала цель, потом источник.'},{t:'Нашли вас в интернете, предлагаем...',c:false,fb:'Источник без цели.'},{t:'Вы оставляли заявку ранее',c:false,fb:'Если неправда — доверие уничтожено.'}]},
+    {q:'Уточните конкретный запрос.',opts:[{t:'Хотим обсудить автоматизацию финотчётности',c:true,fb:'Конкретно и релевантно должности.'},{t:'Расскажу о выгодах',c:false,fb:'«Выгоды» — расплывчато.'},{t:'Пришлю детали на почту',c:false,fb:'КП без согласия — навязчиво.'},{t:'Займёт всего 2 минуты',c:false,fb:'Цель звонка не названа.'}]}
+  ]},
+  {id:3,phrase:'Что вы хотели?',name:'Дмитрий Захаров',role:'Руководитель IT',company:'«Диджитал»',sphere:'Технологии',svgFill:'#9FE1CB',svgAccent:'#0F6E56',gender:'m',look:'it',tone:'direct',steps:[
+    {q:'IT-руководитель прямо спрашивает. Как начать?',opts:[{t:'Здравствуйте!',c:true,fb:'Уместно даже с прямым собеседником — это уважение.'},{t:'Хочу предложить решение',c:false,fb:'Без приветствия — агрессивно.'},{t:'Слушайте, у меня вопрос',c:false,fb:'Непонятно кто говорит.'},{t:'Ой, добрый... ладно, коротко',c:false,fb:'Нерешительный старт снижает доверие.'}]},
+    {q:'Представьтесь чётко.',opts:[{t:'Иван Иванов, компания «Ромашка»',c:true,fb:'Лаконично — именно то, что ценит IT-руководитель.'},{t:'Я Иван, занимаюсь продажами ПО',c:false,fb:'Нет фамилии, нет компании.'},{t:'Мы разрабатываем крутые решения',c:false,fb:'«Крутые решения» — не имя.'},{t:'Иван Иванов из отдела по работе с корп.клиентами',c:false,fb:'Слишком длинно.'}]},
+    {q:'Одна фраза — зачем звоните?',opts:[{t:'Звоню по вопросу интеграции CRM для вашей команды',c:true,fb:'Конкретная техническая цель.'},{t:'У нас есть цифровые решения',c:false,fb:'Слишком широко.'},{t:'Предлагаю посмотреть презентацию',c:false,fb:'Без цели — зачем смотреть?'},{t:'Расскажу о нашем кейсе',c:false,fb:'Кейс — второй шаг.'}]},
+    {q:'Добавьте конкретный результат.',opts:[{t:'Поможем сократить время обработки заявок на 30%',c:true,fb:'Конкретный измеримый результат — язык IT-руководителя.'},{t:'Это сделает работу лучше',c:false,fb:'«Лучше» — в чём именно?'},{t:'Многие компании уже используют нас',c:false,fb:'«Многие» — не аргумент.'},{t:'Обсудим при встрече',c:false,fb:'Встреча без обоснования — рано.'}]}
+  ]},
+  {id:4,phrase:'По какому вопросу?',name:'Наталья Воронова',role:'HR-директор',company:'Сеть кофеен «Брю»',sphere:'Ресторанный бизнес',svgFill:'#FAC775',svgAccent:'#BA7517',gender:'f',look:'hr',tone:'professional',steps:[
+    {q:'HR-директор задаёт стандартный вопрос. Начните.',opts:[{t:'Здравствуйте!',c:true,fb:'Приветствие — первый элемент формулы. Всегда.'},{t:'Я по поводу вашей вакансии',c:false,fb:'Без приветствия и представления.'},{t:'Наталья Воронова? Отлично!',c:false,fb:'Странный старт.'},{t:'Мне нужно обсудить кадровый вопрос',c:false,fb:'Сначала поздоровайтесь.'}]},
+    {q:'HR ценит людей — имя важно.',opts:[{t:'Это Иван Иванов, компания «Ромашка»',c:true,fb:'Чётко, коротко, с компанией.'},{t:'Это Иван из отдела продаж',c:false,fb:'Нет фамилии.'},{t:'Я уже звонил раньше',c:false,fb:'Без представления.'},{t:'Иван Иванов, мы в рекрутинге 5 лет',c:false,fb:'История — не представление.'}]},
+    {q:'Цель звонка — релевантная HR.',opts:[{t:'Звоню по вопросу подбора персонала для вашей сети',c:true,fb:'Конкретная цель + контекст бизнеса.'},{t:'Хочу предложить сотрудничество',c:false,fb:'«Сотрудничество» — не цель.'},{t:'Есть предложение которое заинтересует',c:false,fb:'Интрига без конкретики раздражает.'},{t:'Мы работаем с кафе и ресторанами',c:false,fb:'Факт о вас — не цель.'}]},
+    {q:'Уточните, чем можете помочь.',opts:[{t:'Специализируемся на массовом подборе линейного персонала',c:true,fb:'Специализация = ценность для HR.'},{t:'Мы поможем найти лучших сотрудников',c:false,fb:'«Лучших» — субъективно.'},{t:'Работаем быстрее HeadHunter',c:false,fb:'Сравнение без доказательств.'},{t:'Расскажу при встрече',c:false,fb:'HR не согласится без ценности.'}]}
+  ]},
+  {id:5,phrase:'Я сейчас занят, быстро говорите',name:'Сергей Белов',role:'Генеральный директор',company:'Завод «ТехноПром»',sphere:'Производство',svgFill:'#D3D1C7',svgAccent:'#5F5E5A',gender:'m',look:'ceo',tone:'hurry',steps:[
+    {q:'Гендиректор требует говорить быстро. Как начать?',opts:[{t:'Здравствуйте!',c:true,fb:'Одно слово — 1 секунда. Это обязательно.'},{t:'Ладно, тогда сразу к делу',c:false,fb:'«Ладно» — нервно и непрофессионально.'},{t:'Да, понял, одну минуту...',c:false,fb:'Растерянность — не лучший старт.'},{t:'Хорошо, пропущу приветствие',c:false,fb:'Нельзя пропускать приветствие.'}]},
+    {q:'Кратко — кто вы?',opts:[{t:'Иван Иванов, «Ромашка»',c:true,fb:'За 4 слова — имя, фамилия, компания. Идеально.'},{t:'Иван, звоню по делу',c:false,fb:'Нет фамилии и компании.'},{t:'Я представитель компании',c:false,fb:'Безличный ответ.'},{t:'Меня зовут Иван Иванов, я работаю...',c:false,fb:'Слишком длинно.'}]},
+    {q:'Одна фраза — зачем звоните?',opts:[{t:'Поставки промоборудования — хочу обсудить условия',c:true,fb:'Тема + намерение за 8 слов.'},{t:'У нас есть предложение для бизнеса',c:false,fb:'Ничего не говорит занятому человеку.'},{t:'Хочу рассказать о нашей компании',c:false,fb:'Рассказ — не цель.'},{t:'Это важно и займёт немного времени',c:false,fb:'Без содержания.'}]},
+    {q:'Предложите чёткий следующий шаг.',opts:[{t:'Есть ли удобное время на этой неделе?',c:true,fb:'Конкретный вопрос о времени — уважение к директору.'},{t:'Пришлю КП на почту',c:false,fb:'КП без договорённости — уйдёт в спам.'},{t:'Жду вашего ответа',c:false,fb:'Что он должен сделать?'},{t:'Перезвоню как-нибудь',c:false,fb:'«Как-нибудь» — непрофессионально.'}]}
+  ]},
+  {id:6,phrase:'Мне неудобно, давайте короче',name:'Анна Фёдорова',role:'Коммерческий директор',company:'Торговая сеть «Оптима»',sphere:'Розничная торговля',svgFill:'#ED93B1',svgAccent:'#993556',gender:'f',look:'commercial',tone:'busy',steps:[
+    {q:'Директор просит короче. Первое слово?',opts:[{t:'Здравствуйте!',c:true,fb:'Одно слово — задаёт тон.'},{t:'Ок, буду краток',c:false,fb:'Без приветствия нельзя начинать.'},{t:'Понимаю вас, поэтому...',c:false,fb:'Вы ещё не представились!'},{t:'Это срочно, к делу',c:false,fb:'«Срочно» без представления — манипуляция.'}]},
+    {q:'Кратко — кто вы откуда?',opts:[{t:'Иван Иванов, компания «Ромашка»',c:true,fb:'Кратко и полно.'},{t:'Иван, занимаюсь поставками',c:false,fb:'Нет фамилии и компании.'},{t:'Мы звонили раньше',c:false,fb:'Ссылка без представления.'},{t:'Иван Иванов, у нас выгодное предложение',c:false,fb:'Сразу в продажу.'}]},
+    {q:'Одним предложением — зачем звоните?',opts:[{t:'Звоню по вопросу оптовых поставок для вашей сети',c:true,fb:'Конкретно и релевантно.'},{t:'Хочу сделать вам предложение',c:false,fb:'«Предложение» — не цель. Какое?'},{t:'Мы работаем с торговыми сетями вашего масштаба',c:false,fb:'Факт о вас — не цель.'},{t:'Это в ваших интересах',c:false,fb:'Манипулятивно.'}]},
+    {q:'Предложите следующий шаг уважая время.',opts:[{t:'Могу выслать детали — когда удобно получить?',c:true,fb:'Отдаёте выбор ей. Уважение + конкретный шаг.'},{t:'Перезвоню позже',c:false,fb:'«Позже» — размыто.'},{t:'Это займёт 2 минуты, подождите',c:false,fb:'Она сказала неудобно. Не настаивайте.'},{t:'Позвоните сами как будет время',c:false,fb:'Перекладывать инициативу — слабо.'}]}
+  ]},
+  {id:7,phrase:'Откуда у вас мой номер?',name:'Виктор Соколов',role:'Частный предприниматель',company:'ИП Соколов В.А.',sphere:'Малый бизнес',svgFill:'#C0DD97',svgAccent:'#3B6D11',gender:'m',look:'entrepreneur',tone:'suspicious',steps:[
+    {q:'Предприниматель подозрителен. Первый шаг?',opts:[{t:'Здравствуйте, Виктор Александрович!',c:true,fb:'С именем показывает — вы знаете кому звоните.'},{t:'Номер в открытой базе, не беспокойтесь',c:false,fb:'Без приветствия — грубо.'},{t:'Это не важно, я по делу',c:false,fb:'«Не важно» — трубку положат.'},{t:'Коллеги дали, объясню позже',c:false,fb:'Уклончиво — доверие потеряно.'}]},
+    {q:'Представьтесь и объясните источник.',opts:[{t:'Иван Иванов, «Ромашка» — нашли на Яндекс.Бизнес',c:true,fb:'Имя + компания + честный источник — доверие.'},{t:'Иван Иванов, источник не раскрою',c:false,fb:'Конфиденциальный источник = звучит нелегально.'},{t:'Иван, мы из базы CRM',c:false,fb:'«База CRM» — звучит как утечка.'},{t:'Иван Иванов. Сотрудничаем со многими ИП',c:false,fb:'Источник не объяснён.'}]},
+    {q:'Зачем звоните — честно.',opts:[{t:'Звоню предложить бухгалтерское сопровождение для ИП',c:true,fb:'Честная конкретная цель.'},{t:'По поводу сотрудничества, детали расскажу',c:false,fb:'Уклончиво.'},{t:'Хочу познакомиться и рассказать о нас',c:false,fb:'Без цели — не заинтересует.'},{t:'У вас же бухгалтер есть? А у нас лучше',c:false,fb:'Предположение — агрессивный тон.'}]},
+    {q:'Закройте первый контакт.',opts:[{t:'Могу выслать пример расчёта — ни к чему не обязывает',c:true,fb:'Конкретное необязывающее предложение.'},{t:'Жду вашего решения',c:false,fb:'Какого решения?'},{t:'Вы можете нам доверять, мы работаем 10 лет',c:false,fb:'«Доверяйте» без доказательств.'},{t:'Ладно, перезвоню в другой раз',c:false,fb:'Без конкретного шага — упущено.'}]}
+  ]},
+  {id:8,phrase:'Вы что-то продаёте?',name:'Карина Мустафина',role:'Операционный менеджер',company:'«ТрансЛог»',sphere:'Логистика',svgFill:'#85B7EB',svgAccent:'#185FA5',gender:'f',look:'operations',tone:'skeptical',steps:[
+    {q:'Прямой вопрос «продаёте?». Как начать?',opts:[{t:'Здравствуйте, не совсем так!',c:true,fb:'Приветствие + мягкое уточнение — правильный старт.'},{t:'Да, у нас отличные условия!',c:false,fb:'Без представления — трубку повесит.'},{t:'Нет, мы предлагаем решения',c:false,fb:'Без приветствия и имени.'},{t:'Смотря что вы имеете в виду',c:false,fb:'Уклончиво.'}]},
+    {q:'Представьтесь и снимите тревогу.',opts:[{t:'Иван Иванов, «Ромашка» — работаем с логистикой',c:true,fb:'Имя + компания + релевантность сфере.'},{t:'Иван, занимаюсь продажами ПО',c:false,fb:'Слово «продажами» усилит скептицизм.'},{t:'Мы консультируем по оптимизации',c:false,fb:'«Консультируем» без имени.'},{t:'Иван Иванов, мы лидеры рынка',c:false,fb:'«Лидеры рынка» — самопровозглашённо.'}]},
+    {q:'Цель — не продажа, а задача клиента.',opts:[{t:'Звоню обсудить оптимизацию маршрутов автопарка',c:true,fb:'Конкретная задача клиента — менеджер слышит пользу.'},{t:'Хочу предложить нашу платформу',c:false,fb:'«Предложить платформу» — это и есть продажа.'},{t:'Расскажу почему лучше конкурентов',c:false,fb:'Сравнение без запроса — навязчиво.'},{t:'Хочу понять нужен ли вам наш сервис',c:false,fb:'Хорошо, но нет конкретики.'}]},
+    {q:'Закройте без давления.',opts:[{t:'Могу показать расчёт экономии на конкретном маршруте?',c:true,fb:'Ценное предложение без давления.'},{t:'Давайте встретимся, покажу презентацию',c:false,fb:'Встреча без обоснования — рано.'},{t:'Пришлю наш прайс',c:false,fb:'Прайс без запроса — и есть «продажа».'},{t:'Жду решения от вас',c:false,fb:'Нет конкретного шага.'}]}
+  ]},
+  {id:9,phrase:'Если это реклама — сразу нет',name:'Роман Орлов',role:'Директор по развитию',company:'Фитнес-сеть «FitPro»',sphere:'Фитнес',svgFill:'#F0997B',svgAccent:'#993C1D',gender:'m',look:'fitness',tone:'barrier',steps:[
+    {q:'Директор ставит барьер «если реклама — нет». Как удержать?',opts:[{t:'Здравствуйте — это не реклама, это деловое предложение',c:true,fb:'Приветствие + снятие барьера — правильная реакция.'},{t:'Не беспокойтесь, у нас классный продукт!',c:false,fb:'«Классный продукт» — это и есть реклама.'},{t:'Хорошо, тогда до свидания',c:false,fb:'Сдаться сразу — упустить возможность.'},{t:'Понял, перейду к выгодам',c:false,fb:'Без приветствия и представления нельзя.'}]},
+    {q:'Представьтесь — докажите серьёзность.',opts:[{t:'Иван Иванов, «Ромашка» — работаем с фитнес-сетями',c:true,fb:'Имя + компания + опыт в его сфере — не спам.'},{t:'Я Иван, у нас интересное решение',c:false,fb:'Нет фамилии, нет компании.'},{t:'Иван Иванов из отдела B2B продаж',c:false,fb:'«Отдел продаж» без компании — звучит как спам.'},{t:'Мы лидеры в нашей нише',c:false,fb:'Самореклама без имени.'}]},
+    {q:'Покажите что это не реклама — конкретная задача.',opts:[{t:'Звоню по вопросу автоматизации клиентской базы клуба',c:true,fb:'Конкретная задача — это деловой разговор.'},{t:'Хочу рассказать о нашем решении',c:false,fb:'«Рассказать о решении» — реклама в чистом виде.'},{t:'Поможем привлечь больше клиентов',c:false,fb:'Обещание без конкретики = рекламный слоган.'},{t:'Предлагаем уникальную программу лояльности',c:false,fb:'«Уникальную программу» — рекламный язык.'}]},
+    {q:'Финальный шаг — без давления.',opts:[{t:'Могу за 5 минут показать как работает у аналогичной сети?',c:true,fb:'Пример + короткое время + без обязательств.'},{t:'Давайте встретимся, расскажу подробнее',c:false,fb:'Слишком большой шаг для скептичного директора.'},{t:'Пришлю материалы на почту',c:false,fb:'Без согласия — это и есть реклама.'},{t:'Ну хотя бы посмотрите наш сайт',c:false,fb:'«Хотя бы» — слабая позиция.'}]}
+  ]}
+];
+
+function makeSVGAvatar(sit,size){
+  const s=size||54,r=s/2,g=sit.gender,l=sit.look,bg=sit.svgFill,ac=sit.svgAccent;
+  const skin=g==='f'?'#F8D7C0':'#F5CBA7';
+  const hairMap={secretary:'#3D2B1F',director:'#2C2C2A',finance:'#1A1A2E',it:'#E8A020',hr:'#8B4513',ceo:'#888780',commercial:'#C0392B',entrepreneur:'#3D2B1F',operations:'#1A3A5C',fitness:'#2C2C2A'};
+  const hair=hairMap[l]||'#3D2B1F';
+  const outfitMap={secretary:ac,director:ac,finance:ac,it:'#27AE60',hr:ac,ceo:ac,commercial:ac,entrepreneur:'#27AE60',operations:ac,fitness:'#E74C3C'};
+  const outfit=outfitMap[l]||ac;
+  const hairSVG=g==='f'
+    ?`<ellipse cx="${r}" cy="${r-20}" rx="13" ry="10" fill="${hair}"/><rect x="${r-13}" y="${r-20}" width="6" height="16" rx="3" fill="${hair}"/><rect x="${r+7}" y="${r-20}" width="6" height="16" rx="3" fill="${hair}"/>`
+    :`<ellipse cx="${r}" cy="${r-20}" rx="13" ry="8" fill="${hair}"/>`;
+  const hasGlasses=l==='it'||l==='finance';
+  const glasses=hasGlasses?`<rect x="${r-10}" y="${r-14}" width="8" height="5" rx="2" fill="none" stroke="${ac}" stroke-width="1.2"/><rect x="${r+2}" y="${r-14}" width="8" height="5" rx="2" fill="none" stroke="${ac}" stroke-width="1.2"/><line x1="${r-2}" y1="${r-12}" x2="${r+2}" y2="${r-12}" stroke="${ac}" stroke-width="1"/>`:'' ;
+  let extras='';
+  if(l==='director'||l==='ceo') extras=`<rect x="${r-3}" y="${r+4}" width="6" height="8" rx="1" fill="#C0392B"/>`;
+  if(l==='fitness') extras=`<circle cx="${r+9}" cy="${r-9}" r="4" fill="#E74C3C" opacity=".45"/>`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg"><circle cx="${r}" cy="${r}" r="${r}" fill="${bg}"/><ellipse cx="${r}" cy="${r+18}" rx="16" ry="10" fill="${outfit}"/>${hairSVG}<ellipse cx="${r}" cy="${r-10}" rx="11" ry="13" fill="${skin}"/><ellipse cx="${r-4}" cy="${r-12}" rx="2" ry="2.5" fill="white"/><ellipse cx="${r+4}" cy="${r-12}" rx="2" ry="2.5" fill="white"/><circle cx="${r-4}" cy="${r-12}" r="1.2" fill="#2C2C2A"/><circle cx="${r+4}" cy="${r-12}" r="1.2" fill="#2C2C2A"/><path d="M${r-4} ${r-2} Q${r} ${r+1} ${r+4} ${r-2}" fill="none" stroke="#C0748A" stroke-width="1.5" stroke-linecap="round"/>${glasses}${extras}</svg>`;
+}
+
+let curSit=null,curStep=0,stepSc=0,answered=false;
+let timerInt=null,timerSec=0;
+let step0Failed=false,step1Failed=false;
+const done=new Set();
+let soundOn=true;
+
+function toggleSound(){
+  soundOn=!soundOn;
+  const btn=document.getElementById('sound-toggle-btn');
+  if(btn){btn.textContent=soundOn?'🔊 Звук':'🔇 Звук выкл';btn.className=soundOn?'sound-btn':'sound-btn off';}
+  if(!soundOn&&window.speechSynthesis) window.speechSynthesis.cancel();
+  const sb=document.getElementById('speak-btn');
+  if(sb){sb.disabled=!soundOn;sb.style.opacity=soundOn?'1':'0.4';sb.textContent='▶ Слушать';sb.classList.remove('playing');}
+}
+
+function getBestVoice(gender){
+  if(!window.speechSynthesis) return null;
+  const voices=window.speechSynthesis.getVoices();
+  const ru=voices.filter(v=>v.lang&&v.lang.startsWith('ru'));
+  if(!ru.length) return voices[0]||null;
+  const fKeys=['female','woman','girl','oksana','milena','irina','anna','elena','svetlana','tatyana','alena'];
+  const mKeys=['male','man','yuri','dmitri','aleksandr','pavel','maxim','boris','igor'];
+  if(gender==='f') return ru.find(v=>fKeys.some(k=>v.name.toLowerCase().includes(k)))||ru[ru.length>1?1:0];
+  return ru.find(v=>mKeys.some(k=>v.name.toLowerCase().includes(k)))||ru[0];
+}
+
+function speakText(text,gender,onEnd){
+  if(!soundOn||!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ru-RU';
+  const voice=getBestVoice(gender||'f');
+  if(voice) u.voice=voice;
+  u.pitch=gender==='m'?0.75:1.2;
+  u.rate=gender==='m'?0.88:0.95;
+  if(onEnd) u.onend=onEnd;
+  window.speechSynthesis.speak(u);
+}
+
+function speakPhrase(){
+  if(!soundOn||!curSit) return;
+  if(window.speechSynthesis&&window.speechSynthesis.speaking){
+    window.speechSynthesis.cancel();
+    const b=document.getElementById('speak-btn');
+    if(b){b.textContent='▶ Слушать';b.classList.remove('playing');}
+    return;
+  }
+  const b=document.getElementById('speak-btn');
+  if(b){b.textContent='⏹ Стоп';b.classList.add('playing');}
+  speakText(curSit.phrase,curSit.gender,()=>{const b2=document.getElementById('speak-btn');if(b2){b2.textContent='▶ Слушать';b2.classList.remove('playing');}});
+}
+
+function playRing(){try{const ac=new(window.AudioContext||window.webkitAudioContext)();function b(f,s,d){const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(.28,s);g.gain.exponentialRampToValueAtTime(.001,s+d);o.start(s);o.stop(s+d+.05)}const t=ac.currentTime;b(880,t,.15);b(1100,t+.2,.15);b(880,t+.5,.15);b(1100,t+.7,.15);}catch(e){}}
+function playHangup(){try{const ac=new(window.AudioContext||window.webkitAudioContext)();function b(f,s,d){const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;o.type='square';g.gain.setValueAtTime(.25,s);g.gain.exponentialRampToValueAtTime(.001,s+d);o.start(s);o.stop(s+d+.05)}const t=ac.currentTime;b(250,t,.1);b(200,t+.15,.1);b(150,t+.3,.2);}catch(e){}}
+function playSuccess(){try{const ac=new(window.AudioContext||window.webkitAudioContext)();function b(f,s,d){const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(.2,s);g.gain.exponentialRampToValueAtTime(.001,s+d);o.start(s);o.stop(s+d+.05)}const t=ac.currentTime;b(523,t,.1);b(659,t+.12,.1);b(784,t+.24,.2);b(1047,t+.38,.3);}catch(e){}}
+
+function show(id){
+  ['sc-intro','sc-select','sc-ring','sc-call','sc-end'].forEach(s=>{const el=document.getElementById(s);if(el)el.style.display='none';});
+  const t=document.getElementById(id);if(t)t.style.display='block';
+}
+
+function goSelect(){
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  show('sc-select');
+  const grid=document.getElementById('sel-grid');
+  grid.innerHTML='';
+  SITS.forEach(sit=>{
+    const c=document.createElement('div');
+    c.className='sel-card'+(done.has(sit.id)?' done':'');
+    c.innerHTML=`<div style="width:60px;height:60px;border-radius:10px;overflow:hidden;margin-bottom:8px">${makeSVGAvatar(sit,60)}</div><div class="sc-name">${sit.name}</div><div class="sc-role">${sit.role} · ${sit.sphere}</div><div class="sc-phrase">"${sit.phrase}"</div>`;
+    c.onclick=()=>loadSit(sit.id);
+    grid.appendChild(c);
+  });
+}
+
+function loadSit(id){
+  curSit=SITS.find(s=>s.id===id);
+  curStep=0;stepSc=0;answered=false;step0Failed=false;step1Failed=false;
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  document.getElementById('ring-av-wrap').innerHTML=makeSVGAvatar(curSit,80);
+  document.getElementById('ring-name').textContent=curSit.name;
+  document.getElementById('ring-role').textContent=curSit.role+' · '+curSit.sphere;
+  show('sc-ring');
+  playRing();
+}
+
+function startCall(){
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  timerSec=0;
+  if(timerInt) clearInterval(timerInt);
+  timerInt=setInterval(()=>{timerSec++;const m=Math.floor(timerSec/60),s=timerSec%60;const el=document.getElementById('c-timer');if(el)el.textContent=m+':'+(s<10?'0':'')+s;},1000);
+  document.getElementById('call-av-wrap').innerHTML=makeSVGAvatar(curSit,54);
+  document.getElementById('c-name').textContent=curSit.name;
+  document.getElementById('c-role').textContent=curSit.role;
+  document.getElementById('c-comp').textContent=curSit.company+' · '+curSit.sphere;
+  document.getElementById('sit-top').textContent=curSit.sphere;
+  const sb=document.getElementById('sound-toggle-btn');
+  if(sb){sb.textContent=soundOn?'🔊 Звук':'🔇 Звук выкл';sb.className=soundOn?'sound-btn':'sound-btn off';}
+  show('sc-call');
+  renderStep();
+  if(soundOn) setTimeout(()=>speakText(curSit.phrase,curSit.gender,()=>{const b=document.getElementById('speak-btn');if(b){b.textContent='▶ Слушать';b.classList.remove('playing');}}),600);
+}
+
+function renderStep(){
+  answered=false;
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  const step=curSit.steps[curStep];
+  document.getElementById('prog-fill').style.width=Math.round((curStep/curSit.steps.length)*100)+'%';
+  document.getElementById('score-disp').textContent=stepSc+'/'+curStep;
+  document.getElementById('sit-badge').textContent='«'+curSit.phrase+'»';
+  document.getElementById('step-lbl').textContent='Шаг '+(curStep+1)+' из '+curSit.steps.length;
+  document.getElementById('step-q').textContent=step.q;
+  document.getElementById('speech-txt').innerHTML='— <span class="hl">'+curSit.phrase+'</span>';
+  const spkBtn=document.getElementById('speak-btn');
+  if(spkBtn){spkBtn.textContent='▶ Слушать';spkBtn.classList.remove('playing');spkBtn.disabled=!soundOn;spkBtn.style.opacity=soundOn?'1':'0.4';}
+  const ring=document.getElementById('st-ring');
+  if(ring) ring.className='status-ring talk';
+  document.getElementById('hangup-warn').style.display='none';
+  document.getElementById('fb-box').className='fb-box';
+  const nb=document.getElementById('nxt-btn');
+  nb.style.display='none';nb.className='nxt-btn';nb.onclick=null;
+  ['ft0','ft1','ft2','ft3'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(i<curStep){const wasFail=(i===0&&step0Failed)||(i===1&&step1Failed);el.className='ft '+(wasFail?'fail':'done');}
+    else if(i===curStep) el.className='ft cur';
+    else el.className='ft';
+  });
+  const opts=document.getElementById('opts-el');
+  opts.innerHTML='';
+  [...step.opts].sort(()=>Math.random()-.5).forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.className='opt';btn.textContent=opt.t;
+    btn.onclick=()=>pick(btn,opt);
+    opts.appendChild(btn);
+  });
+}
+
+function pick(btn,opt){
+  if(answered) return;
+  answered=true;
+  document.querySelectorAll('.opt').forEach(b=>b.disabled=true);
+  const fb=document.getElementById('fb-box');
+  const speech=document.getElementById('speech-txt');
+  const ring=document.getElementById('st-ring');
+  const hw=document.getElementById('hangup-warn');
+  const nb=document.getElementById('nxt-btn');
+  if(opt.c){
+    btn.className='opt ok';stepSc++;
+    fb.className='fb-box ok';fb.textContent='✓ '+opt.fb;
+    const okP=['Хорошо, слушаю...','Понял, продолжайте.','Ясно, слушаю вас.'];
+    const react=okP[Math.floor(Math.random()*okP.length)];
+    speech.innerHTML='— <span class="hl">'+react+'</span>';
+    if(ring) ring.className='status-ring talk';
+    if(soundOn) speakText(react,curSit.gender);
+    hw.style.display='none';
+    nb.style.display='block';nb.className='nxt-btn';
+    nb.textContent=curStep<curSit.steps.length-1?'Следующий шаг →':'Завершить звонок';
+    nb.onclick=()=>goNextStep();
+  } else {
+    btn.className='opt bad';
+    fb.className='fb-box bad';fb.textContent='✗ '+opt.fb;
+    if(curStep===0) step0Failed=true;
+    if(curStep===1) step1Failed=true;
+    const reactions={neutral:'Хм, не очень...',busy:'Некогда. Перезвоните.',suspicious:'Что-то не то...',direct:'Непонятно.',professional:'Ожидала большего.',hurry:'Это непрофессионально.',skeptical:'Опять продажа...',barrier:'Ну вот, реклама.'};
+    const react=reactions[curSit.tone]||'Понятно...';
+    speech.innerHTML='— <span class="hl">'+react+'</span>';
+    if(ring) ring.className='status-ring fail';
+    if(soundOn) speakText(react,curSit.gender);
+    const shouldHangup=step0Failed&&step1Failed;
+    if(shouldHangup){
+      hw.style.display='block';
+      hw.textContent='Оба критических элемента провалены: приветствие и представление. Клиент не понимает кто звонит — он кладёт трубку.';
+      nb.style.display='block';nb.className='nxt-btn danger';
+      nb.textContent='Звонок прерван — посмотреть результат';
+      nb.onclick=()=>earlyEnd();
+    } else {
+      hw.style.display='none';
+      nb.style.display='block';nb.className='nxt-btn';
+      nb.textContent=curStep<curSit.steps.length-1?'Следующий шаг →':'Завершить звонок';
+      nb.onclick=()=>goNextStep();
+    }
+  }
+  document.getElementById('score-disp').textContent=stepSc+'/'+(curStep+1);
+}
+
+function goNextStep(){curStep++;if(curStep>=curSit.steps.length) endCall();else renderStep();}
+
+function earlyEnd(){
+  if(timerInt) clearInterval(timerInt);
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  playHangup();done.add(curSit.id);show('sc-end');
+  document.getElementById('end-ico').textContent='📵';
+  document.getElementById('end-ttl').textContent='Клиент бросил трубку';
+  document.getElementById('end-sub').textContent='Приветствие и представление — два обязательных первых элемента. Без них клиент не понимает кто звонит и заканчивает разговор.';
+  const sc=document.getElementById('end-sc');sc.textContent=stepSc+'/4';sc.style.color='#E24B4A';
+}
+
+function endCall(){
+  if(timerInt) clearInterval(timerInt);
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  const passed=stepSc>=3;done.add(curSit.id);
+  if(passed) playSuccess();else playHangup();
+  show('sc-end');
+  document.getElementById('end-ico').textContent=passed?'🎉':'📵';
+  document.getElementById('end-ttl').textContent=passed?'Отличный звонок!':'Клиент сбросил звонок';
+  document.getElementById('end-sub').textContent=passed?'Вы правильно применили формулу. '+curSit.name+' готов(а) слушать дальше.':'Попробуйте ещё раз — правильный старт решает всё.';
+  const sc=document.getElementById('end-sc');sc.textContent=stepSc+'/4';sc.style.color=passed?'#1D9E75':'#E24B4A';
+}
+
+function replaySit(){loadSit(curSit.id);}
+
+show('sc-intro');
+if(window.speechSynthesis) window.speechSynthesis.getVoices();
+</script>
+</body>
+</html>
